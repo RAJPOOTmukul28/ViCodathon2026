@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+const API_URL = "https://vicodathon2026.onrender.com";
+
 function App() {
   const [prompt, setPrompt] = useState("");
   const [response, setResponse] = useState("");
@@ -16,7 +18,7 @@ function App() {
     setResponse("");
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/chat", {
+      const res = await fetch(`${API_URL}/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -43,7 +45,7 @@ function App() {
     setPublication(null);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/agent/run", {
+      const res = await fetch(`${API_URL}/agent/run`, {
         method: "POST",
       });
 
@@ -80,7 +82,6 @@ function App() {
           margin: "auto",
         }}
       >
-        {/* HEADER */}
         <header style={{ marginBottom: "40px" }}>
           <h1>🚀 Vikram AI</h1>
 
@@ -89,7 +90,6 @@ function App() {
           </p>
         </header>
 
-        {/* CHAT SECTION */}
         <section
           style={{
             background: "white",
@@ -152,7 +152,6 @@ function App() {
           )}
         </section>
 
-        {/* AUTONOMOUS AGENT */}
         <section
           style={{
             background: "white",
@@ -201,7 +200,6 @@ function App() {
           )}
         </section>
 
-        {/* PUBLICATION */}
         {publication && (
           <section
             style={{
@@ -261,10 +259,12 @@ function App() {
                   {publication.reason.why_selected}
                 </p>
 
-                <p>
-                  <strong>Mode:</strong>{" "}
-                  {publication.reason.decision_mode}
-                </p>
+                {publication.reason.decision_mode && (
+                  <p>
+                    <strong>Mode:</strong>{" "}
+                    {publication.reason.decision_mode}
+                  </p>
+                )}
               </div>
             )}
           </section>
