@@ -1,18 +1,23 @@
-# Node
-frontend/node_modules/
-frontend/dist/
-
 # Python
-backend/venv/
-backend/__pycache__/
-*.pyc
+__pycache__/
+*.py[cod]
 
-# Environment
-backend/.env
+# Virtual environment
+venv/
+.venv/
 
-# VS Code
-.vscode/
+# Environment secrets
+.env
+.env.*
 
-# OS
-.DS_Store
-Thumbs.db
+# Runtime memory
+agent_memory.json
+
+# Node
+node_modules/
+
+# Frontend build
+dist/
+
+# Logs
+*.log

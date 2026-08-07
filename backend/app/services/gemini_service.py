@@ -1,14 +1,29 @@
 import os
-import google.generativeai as genai
 from dotenv import load_dotenv
+from google import genai
 
 load_dotenv()
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+API_KEY = os.getenv("GOOGLE_API_KEY")
 
-model = genai.GenerativeModel("gemini-2.5-flash")
+if not API_KEY:
+    raise RuntimeError("GOOGLE_API_KEY missing")
+
+print("USING KEY:", API_KEY[:15])
+
+client = genai.Client(api_key=API_KEY)
+
+MODEL_NAME = "gemini-2.5-flash"
 
 
 def ask_gemini(prompt: str):
-    response = model.generate_content(prompt)
-    return response.text
+    try:
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=prompt
+        )
+
+        return response.text
+
+    except Exception as e:
+        return f"Gemini Error: {str(e)}"
