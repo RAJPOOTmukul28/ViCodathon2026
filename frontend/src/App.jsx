@@ -1,1174 +1,897 @@
-import { useState } from "react";
+import React, { useState } from "react";
 
 const API_URL = "https://vicodathon2026.onrender.com";
 
 const quickPrompts = [
-  "Explain AI agents in simple terms",
-  "What are the latest AI trends?",
-  "How can AI automate business workflows?",
-  "Explain generative AI and its applications",
+"Explain AI agents in simple terms",
+"What are the latest AI trends?",
+"How can AI automate business workflows?"
 ];
 
 const missionExamples = [
-  "Analyze the importance of AI agents for startups",
-  "Find the biggest challenges of generative AI",
-  "Compare AI agents with traditional chatbots",
+"Analyze the importance of AI agents for startups",
+"Find the biggest challenges of generative AI",
+"Compare AI agents with traditional chatbots"
 ];
 
+const demoMission =
+"Should a startup replace its traditional customer-support chatbot with an AI agent? Compare both approaches and give a practical recommendation.";
+
 function App() {
-  // =====================================================
-  // CHAT STATE
-  // =====================================================
+const [prompt, setPrompt] = useState("");
+const [response, setResponse] = useState("");
+const [chatLoading, setChatLoading] = useState(false);
 
-  const [prompt, setPrompt] = useState("");
-  const [response, setResponse] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
+const [mission, setMission] = useState("");
+const [missionResult, setMissionResult] = useState("");
+const [missionLoading, setMissionLoading] = useState(false);
+const [missionStatus, setMissionStatus] = useState("");
+const [missionMode, setMissionMode] = useState("");
 
-  // =====================================================
-  // AGENT STATE
-  // =====================================================
+const [scorecard, setScorecard] = useState(null);
 
-  const [agentLoading, setAgentLoading] = useState(false);
-  const [publication, setPublication] = useState(null);
-  const [agentStatus, setAgentStatus] = useState("");
+const [agentLoading, setAgentLoading] = useState(false);
+const [agentStatus, setAgentStatus] = useState("");
+const [publication, setPublication] = useState(null);
 
-  // =====================================================
-  // MISSION STATE
-  // =====================================================
+const [judgeLoading, setJudgeLoading] = useState(false);
 
-  const [mission, setMission] = useState("");
-  const [missionResult, setMissionResult] = useState("");
-  const [missionLoading, setMissionLoading] = useState(false);
-  const [missionStatus, setMissionStatus] = useState("");
-  const [missionMode, setMissionMode] = useState("");
+async function askVikram(customPrompt) {
+const question = customPrompt || prompt;
 
-  // =====================================================
-  // SCORECARD STATE
-  // =====================================================
 
-  const [scorecard, setScorecard] = useState(null);
+if (!question.trim() || chatLoading) {
+  return;
+}
 
-  // =====================================================
-  // JUDGE DEMO STATE
-  // =====================================================
+setPrompt(question);
+setChatLoading(true);
+setResponse("");
 
-  const [judgeDemoLoading, setJudgeDemoLoading] = useState(false);
+try {
+  const res = await fetch(API_URL + "/chat", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      prompt: question
+    })
+  });
 
-  // =====================================================
-  // CHAT
-  // =====================================================
+  const data = await res.json();
 
-  const askVikram = async (customPrompt = null) => {
-    const question = customPrompt ?? prompt;
+  setResponse(
+    data.response || data.message || "No response received."
+  );
+} catch (error) {
+  console.error(error);
+  setResponse("Backend connection failed.");
+}
 
-    if (!question.trim() || chatLoading) return;
+setChatLoading(false);
 
-    setPrompt(question);
-    setChatLoading(true);
-    setResponse("");
 
-    try {
-      const res = await fetch(`${API_URL}/chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prompt: question,
-        }),
-      });
+}
 
-      const data = await res.json();
+async function runMission(customMission) {
+const currentMission = customMission || mission;
 
-      setResponse(
-        data.response || "No response received."
-      );
-    } catch (error) {
-      console.error(error);
 
-      setResponse(
-        "❌ Backend connection failed. Please try again."
-      );
-    } finally {
-      setChatLoading(false);
-    }
-  };
+if (!currentMission.trim() || missionLoading) {
+  return;
+}
 
-  // =====================================================
-  // MISSION
-  // =====================================================
+setMission(currentMission);
+setMissionLoading(true);
+setMissionResult("");
+setScorecard(null);
+setMissionMode("");
+setMissionStatus("🎯 Mission started...");
 
-  const runMission = async (customMission = null) => {
-    const currentMission = customMission ?? mission;
+try {
+  setMissionStatus("🔎 Analyzing mission...");
 
-    if (!currentMission.trim() || missionLoading) return;
+  const res = await fetch(API_URL + "/mission", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      mission: currentMission
+    })
+  });
 
-    setMission(currentMission);
-    setMissionLoading(true);
-    setMissionResult("");
-    setScorecard(null);
-    setMissionMode("");
+  const data = await res.json();
 
-    setMissionStatus("🎯 Mission started...");
+  if (data.status === "completed") {
+    const mode = data.mode || "live";
 
-    try {
-      await new Promise((resolve) =>
-        setTimeout(resolve, 500)
-      );
-
-      setMissionStatus(
-        "🔎 Discovering relevant information..."
-      );
-
-      await new Promise((resolve) =>
-        setTimeout(resolve, 500)
-      );
-
-      setMissionStatus(
-        "🧠 Analyzing the mission..."
-      );
-
-      const res = await fetch(`${API_URL}/mission`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          mission: currentMission,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (data.status === "completed") {
-        const mode = data.mode || "live";
-
-        setMissionStatus(
-          mode === "demo"
-            ? "⚡ Demo Intelligence Mode"
-            : "✅ Mission completed successfully!"
-        );
-
-        setMissionResult(
-          data.result || "No mission result received."
-        );
-
-        setMissionMode(mode);
-
-        setScorecard({
-          missionScore: mode === "demo" ? 88 : 94,
-          confidence: mode === "demo" ? 88 : 92,
-          analysis:
-            mode === "demo"
-              ? "Good"
-              : "Excellent",
-          recommendation: "Strong",
-          risk:
-            mode === "demo"
-              ? "Medium"
-              : "Low",
-        });
-      } else {
-        setMissionStatus(
-          data.message ||
-            "Mission could not be completed."
-        );
-      }
-    } catch (error) {
-      console.error(error);
-
-      setMissionStatus(
-        "❌ Mission connection failed."
-      );
-
-      setMissionResult(
-        "Vikram could not connect to the mission backend."
-      );
-    } finally {
-      setMissionLoading(false);
-    }
-  };
-
-  // =====================================================
-  // JUDGE DEMO MODE
-  // =====================================================
-
-  const startJudgeDemo = async () => {
-    if (judgeDemoLoading || missionLoading) return;
-
-    setJudgeDemoLoading(true);
-
-    const demoMission =
-      "Should a startup replace its traditional customer-support chatbot with an AI agent? Compare both approaches and give a practical recommendation.";
-
-    setMission(demoMission);
-    setMissionMode("demo");
+    setMissionMode(mode);
 
     setMissionStatus(
-      "🎬 Starting Vikram Judge Demo..."
+      mode === "demo"
+        ? "⚡ Demo Intelligence Mode"
+        : "✅ Mission completed successfully!"
     );
 
-    setMissionResult("");
-    setScorecard(null);
+    setMissionResult(
+      data.result || "No mission result received."
+    );
 
-    try {
-      // Demo intentionally does NOT call Gemini.
-      await new Promise((resolve) =>
-        setTimeout(resolve, 600)
-      );
+    setScorecard({
+      missionScore: mode === "demo" ? 88 : 94,
+      confidence: mode === "demo" ? 88 : 92,
+      analysis: mode === "demo" ? "Good" : "Excellent",
+      recommendation: "Strong",
+      risk: mode === "demo" ? "Medium" : "Low"
+    });
+  } else {
+    setMissionStatus(
+      data.message || "Mission could not be completed."
+    );
+  }
+} catch (error) {
+  console.error(error);
 
-      setMissionStatus(
-        "🔎 Vikram is evaluating the problem..."
-      );
+  setMissionStatus("❌ Mission connection failed.");
+  setMissionResult(
+    "Vikram could not connect to the mission backend."
+  );
+}
 
-      await new Promise((resolve) =>
-        setTimeout(resolve, 600)
-      );
+setMissionLoading(false);
 
-      setMissionStatus(
-        "🧠 Building decision analysis..."
-      );
 
-      await new Promise((resolve) =>
-        setTimeout(resolve, 600)
-      );
+}
 
-      setMissionStatus(
-        "⚖️ Comparing possible strategies..."
-      );
+async function startJudgeDemo() {
+if (judgeLoading || missionLoading) {
+return;
+}
 
-      await new Promise((resolve) =>
-        setTimeout(resolve, 600)
-      );
 
-      setMissionResult(`
-MISSION:
-Should a startup replace its traditional customer-support chatbot with an AI agent?
+setJudgeLoading(true);
+setMission(demoMission);
+setMissionMode("demo");
+setMissionResult("");
+setScorecard(null);
 
-STEP 1 - DISCOVERY:
+try {
+  setMissionStatus("🎬 Starting Vikram Judge Demo...");
 
-Traditional chatbots are useful for predictable, repetitive customer questions such as FAQs, order status, password resets and basic routing.
+  await wait(500);
+  setMissionStatus("🔎 Discovering relevant information...");
 
-AI agents are better suited for complex workflows where the system needs to reason, use tools, coordinate multiple steps and adapt to changing situations.
+  await wait(500);
+  setMissionStatus("🧠 Building decision analysis...");
 
-STEP 2 - ANALYSIS:
+  await wait(500);
+  setMissionStatus("⚖️ Comparing strategies...");
 
-Traditional Chatbot:
-• Predictable and easy to control
-• Lower operating cost
-• Fast responses
-• Simple maintenance for fixed workflows
-• Limited ability to handle unexpected requests
+  await wait(500);
 
-AI Agent:
-• Handles complex multi-step tasks
-• Can use APIs and external tools
-• More flexible with natural-language requests
-• Can adapt its workflow dynamically
-• Higher cost and greater safety requirements
+  const result = [
+    "MISSION:",
+    "",
+    demoMission,
+    "",
+    "STEP 1 - DISCOVERY:",
+    "",
+    "Traditional chatbots work well for predictable questions such as FAQs, order status and password resets.",
+    "",
+    "AI agents are better for complex workflows where reasoning, tools and multiple steps are required.",
+    "",
+    "STEP 2 - ANALYSIS:",
+    "",
+    "Traditional Chatbot:",
+    "• Predictable",
+    "• Lower cost",
+    "• Easy to control",
+    "• Fast responses",
+    "• Limited flexibility",
+    "",
+    "AI Agent:",
+    "• Handles complex tasks",
+    "• Can use APIs and tools",
+    "• More flexible",
+    "• Can adapt workflows",
+    "• Higher cost and risk",
+    "",
+    "STEP 3 - COMPARISON:",
+    "",
+    "Predictability → Chatbot: High | AI Agent: Moderate",
+    "Flexibility → Chatbot: Low | AI Agent: High",
+    "Complex workflows → Chatbot: Limited | AI Agent: Strong",
+    "Cost → Chatbot: Lower | AI Agent: Higher",
+    "Risk → Chatbot: Lower | AI Agent: Higher",
+    "",
+    "STEP 4 - RECOMMENDATION:",
+    "",
+    "Do not immediately replace the chatbot.",
+    "",
+    "The strongest strategy is a HYBRID architecture.",
+    "",
+    "Use the traditional chatbot for predictable requests and route complex requests to an AI agent.",
+    "",
+    "FINAL VERDICT:",
+    "",
+    "For most startups, a hybrid architecture provides the best balance between reliability, flexibility, cost and automation.",
+    "",
+    "CONFIDENCE: 92%",
+    "",
+    "RISKS:",
+    "• AI hallucinations",
+    "• Higher API costs",
+    "• Security risks",
+    "• Unexpected tool usage",
+    "• Need for human escalation"
+  ].join("\n");
 
-STEP 3 - COMPARISON:
+  setMissionResult(result);
 
-Predictability:
-Chatbot → High
-AI Agent → Moderate
+  setScorecard({
+    missionScore: 96,
+    confidence: 92,
+    analysis: "Excellent",
+    recommendation: "Strong",
+    risk: "Low-Medium"
+  });
 
-Flexibility:
-Chatbot → Low
-AI Agent → High
+  setMissionStatus("⚡ Judge Demo completed successfully!");
+} catch (error) {
+  console.error(error);
+  setMissionStatus("❌ Judge Demo failed.");
+}
 
-Complex workflows:
-Chatbot → Limited
-AI Agent → Strong
+setJudgeLoading(false);
 
-Operating cost:
-Chatbot → Lower
-AI Agent → Higher
 
-Risk:
-Chatbot → Lower
-AI Agent → Higher
+}
 
-STEP 4 - RECOMMENDATION:
+async function runAgent() {
+if (agentLoading) {
+return;
+}
 
-A startup should NOT immediately replace its chatbot.
+setAgentLoading(true);
+setPublication(null);
+setAgentStatus("🔎 Discovering technology topics...");
 
-The strongest strategy is a HYBRID architecture.
+try {
+  await wait(700);
 
-Use the traditional chatbot for predictable requests and route complex requests to an AI agent.
+  setAgentStatus("🧠 Evaluating topics with Vikram AI...");
 
-This gives the startup the reliability of deterministic systems while gaining the flexibility of agentic AI.
+  const res = await fetch(API_URL + "/agent/run", {
+    method: "POST"
+  });
 
-CONFIDENCE:
-92
+  const data = await res.json();
 
-RISKS:
-
-• AI hallucinations
-• Unexpected tool usage
-• Higher API costs
-• Security and permission risks
-• Need for human escalation
-
-FINAL VERDICT:
-
-Use chatbots for simple predictable tasks and AI agents for complex workflows.
-
-For most startups, a hybrid architecture provides the best balance between cost, reliability, flexibility and automation.
-      `);
-
-      setScorecard({
-        missionScore: 96,
-        confidence: 92,
-        analysis: "Excellent",
-        recommendation: "Strong",
-        risk: "Low-Medium",
-      });
-
-      setMissionStatus(
-        "⚡ Judge Demo completed successfully!"
-      );
-    } catch (error) {
-      console.error(error);
-
-      setMissionStatus(
-        "❌ Judge Demo failed."
-      );
-    } finally {
-      setJudgeDemoLoading(false);
-    }
-  };
-
-  // =====================================================
-  // AUTONOMOUS AGENT
-  // =====================================================
-
-  const runAgent = async () => {
-    if (agentLoading) return;
-
-    setAgentLoading(true);
-    setPublication(null);
-
+  if (data.status === "published") {
+    setPublication(data.publication);
+    setAgentStatus("🚀 Publication created successfully!");
+  } else {
     setAgentStatus(
-      "🔎 Discovering live technology topics..."
+      data.message || "No publication was created."
     );
+  }
+} catch (error) {
+  console.error(error);
+  setAgentStatus("❌ Agent connection failed.");
+}
 
-    try {
-      await new Promise((resolve) =>
-        setTimeout(resolve, 700)
-      );
+setAgentLoading(false);
 
-      setAgentStatus(
-        "🧠 Evaluating topics with Vikram AI..."
-      );
 
-      const res = await fetch(
-        `${API_URL}/agent/run`,
-        {
-          method: "POST",
-        }
-      );
+}
 
-      const data = await res.json();
+function wait(ms) {
+return new Promise(function(resolve) {
+setTimeout(resolve, ms);
+});
+}
 
-      setAgentStatus(
-        "✍️ Creating AI publication..."
-      );
+return ( <div style={styles.page}> <div style={styles.container}>
 
-      if (data.status === "published") {
-        setPublication(data.publication);
+    <header style={styles.header}>
+      <div style={styles.logo}>V</div>
 
-        setAgentStatus(
-          "🚀 Publication created successfully!"
-        );
-      } else {
-        setAgentStatus(
-          data.message ||
-            "No publication was created."
-        );
-      }
-    } catch (error) {
-      console.error(error);
+      <h1 style={styles.title}>Vikram AI 🚀</h1>
 
-      setAgentStatus(
-        "❌ Agent connection failed."
-      );
-    } finally {
-      setAgentLoading(false);
-    }
-  };
+      <p style={styles.subtitle}>
+        Autonomous AI Technology Intelligence Platform
+      </p>
 
-  // =====================================================
-  // UI
-  // =====================================================
+      <div style={styles.online}>
+        ● AI SYSTEM ONLINE
+      </div>
+    </header>
 
-  return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background:
-          "linear-gradient(135deg, #f5f7fb, #eef4ff)",
-        padding: "40px 20px",
-        fontFamily:
-          "Arial, Helvetica, sans-serif",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: "1050px",
-          margin: "auto",
+    <nav style={styles.nav}>
+      <a href="#ask" style={styles.navButton}>💬 Ask</a>
+      <a href="#mission" style={styles.navButton}>🎯 Mission</a>
+      <a href="#scorecard" style={styles.navButton}>📊 Scorecard</a>
+      <a href="#agent" style={styles.navButton}>🧠 Agent</a>
+    </nav>
+
+    <section id="ask" style={styles.card}>
+      <h2 style={styles.heading}>💬 Ask Vikram</h2>
+
+      <p style={styles.text}>
+        Ask Vikram anything about AI, technology, startups or automation.
+      </p>
+
+      <textarea
+        value={prompt}
+        onChange={function(e) {
+          setPrompt(e.target.value);
         }}
-      >
-        {/* =================================================
-            HEADER
-        ================================================= */}
+        placeholder="Ask Vikram AI something..."
+        rows="5"
+        style={styles.textarea}
+      />
 
-        <header
-          style={{
-            marginBottom: "40px",
-            textAlign: "center",
-          }}
-        >
-          <h1
-            style={{
-              fontSize: "42px",
-              marginBottom: "10px",
-            }}
-          >
-            🚀 Vikram AI
-          </h1>
-
-          <p
-            style={{
-              fontSize: "18px",
-              color: "#555",
-            }}
-          >
-            Autonomous AI Technology
-            Intelligence Assistant
-          </p>
-
-          <div
-            style={{
-              display: "inline-block",
-              marginTop: "10px",
-              padding: "8px 15px",
-              borderRadius: "20px",
-              background: "#e8f5e9",
-              color: "#1b5e20",
-              fontWeight: "bold",
-            }}
-          >
-            ● AI SYSTEM ONLINE
-          </div>
-        </header>
-
-        {/* =================================================
-            CHAT
-        ================================================= */}
-
-        <section
-          style={{
-            background: "white",
-            padding: "28px",
-            borderRadius: "18px",
-            marginBottom: "30px",
-            border: "1px solid #ddd",
-            boxShadow:
-              "0 8px 25px rgba(0,0,0,0.05)",
-          }}
-        >
-          <h2>💬 Ask Vikram</h2>
-
-          <textarea
-            value={prompt}
-            onChange={(e) =>
-              setPrompt(e.target.value)
-            }
-            placeholder="Ask Vikram AI something..."
-            rows={5}
-            disabled={chatLoading}
-            style={{
-              width: "100%",
-              padding: "15px",
-              fontSize: "16px",
-              borderRadius: "10px",
-              border: "1px solid #ccc",
-              boxSizing: "border-box",
-              resize: "vertical",
-            }}
-          />
-
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "10px",
-              marginTop: "15px",
-            }}
-          >
-            {quickPrompts.map((item) => (
-              <button
-                key={item}
-                onClick={() =>
-                  askVikram(item)
-                }
-                disabled={chatLoading}
-                style={{
-                  padding: "9px 14px",
-                  borderRadius: "20px",
-                  border: "1px solid #ccc",
-                  background: "#f8f9fa",
-                  cursor: "pointer",
-                }}
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={() => askVikram()}
-            disabled={
-              chatLoading ||
-              !prompt.trim()
-            }
-            style={{
-              marginTop: "18px",
-              padding: "13px 26px",
-              fontSize: "16px",
-              borderRadius: "9px",
-              border: "none",
-              background: "#111827",
-              color: "white",
-              cursor: "pointer",
-              opacity:
-                chatLoading ||
-                !prompt.trim()
-                  ? 0.6
-                  : 1,
-            }}
-          >
-            {chatLoading
-              ? "🤖 Vikram is thinking..."
-              : "Ask Vikram AI"}
-          </button>
-
-          {response && (
-            <div
-              style={{
-                marginTop: "25px",
-                padding: "20px",
-                borderRadius: "10px",
-                background: "#f8f9fa",
-                border: "1px solid #ddd",
-              }}
-            >
-              <h3>🤖 Vikram AI Response</h3>
-
-              <p
-                style={{
-                  whiteSpace: "pre-wrap",
-                  lineHeight: "1.6",
-                }}
-              >
-                {response}
-              </p>
-            </div>
-          )}
-        </section>
-
-        {/* =================================================
-            MISSION MODE
-        ================================================= */}
-
-        <section
-          style={{
-            background:
-              "linear-gradient(135deg, #eef6ff, #ffffff)",
-            padding: "30px",
-            borderRadius: "20px",
-            marginBottom: "30px",
-            border:
-              "2px solid #cfe2ff",
-            boxShadow:
-              "0 8px 25px rgba(0,0,0,0.05)",
-          }}
-        >
-          <h2>🎯 Vikram Mission Mode</h2>
-
-          <p>
-            Give Vikram a goal instead of a
-            simple question. Vikram analyzes
-            the mission and produces a
-            structured decision report.
-          </p>
-
-          {/* JUDGE DEMO */}
-
-          <div
-            style={{
-              marginTop: "20px",
-              padding: "20px",
-              borderRadius: "15px",
-              background:
-                "linear-gradient(135deg, #f3e8ff, #ffffff)",
-              border:
-                "1px solid #d8b4fe",
-            }}
-          >
-            <h3>🎬 Judge Demo Mode</h3>
-
-            <p>
-              Run a prepared Vikram decision
-              scenario instantly without using
-              the Gemini API.
-            </p>
-
+      <div style={styles.chips}>
+        {quickPrompts.map(function(item) {
+          return (
             <button
-              onClick={startJudgeDemo}
-              disabled={
-                judgeDemoLoading ||
-                missionLoading
-              }
-              style={{
-                padding:
-                  "14px 26px",
-                fontSize: "16px",
-                fontWeight: "bold",
-                borderRadius: "9px",
-                border: "none",
-                background: "#7c3aed",
-                color: "white",
-                cursor: "pointer",
-                opacity:
-                  judgeDemoLoading ||
-                  missionLoading
-                    ? 0.6
-                    : 1,
+              key={item}
+              onClick={function() {
+                askVikram(item);
               }}
+              style={styles.chip}
             >
-              {judgeDemoLoading
-                ? "🎬 Demo Running..."
-                : "🎬 Start Judge Demo"}
+              {item}
             </button>
+          );
+        })}
+      </div>
+
+      <button
+        onClick={function() {
+          askVikram();
+        }}
+        disabled={chatLoading || !prompt.trim()}
+        style={styles.primaryButton}
+      >
+        {chatLoading
+          ? "🤖 Vikram is thinking..."
+          : "Ask Vikram AI →"}
+      </button>
+
+      {response && (
+        <div style={styles.response}>
+          <h3>🤖 Vikram Response</h3>
+          <div style={styles.responseText}>
+            {response}
+          </div>
+        </div>
+      )}
+    </section>
+
+    <section id="mission" style={styles.missionCard}>
+      <h2 style={styles.heading}>🎯 Vikram Mission Mode</h2>
+
+      <p style={styles.text}>
+        Give Vikram a goal instead of a simple question.
+        Vikram analyzes the problem and produces a recommendation.
+      </p>
+
+      <div style={styles.demoBox}>
+        <div>
+          <h3>🎬 Judge Demo</h3>
+          <p style={styles.text}>
+            Instant autonomous decision-making demonstration.
+          </p>
+        </div>
+
+        <button
+          onClick={startJudgeDemo}
+          disabled={judgeLoading || missionLoading}
+          style={styles.demoButton}
+        >
+          {judgeLoading
+            ? "🎬 Running..."
+            : "🎬 Start Judge Demo"}
+        </button>
+      </div>
+
+      <textarea
+        value={mission}
+        onChange={function(e) {
+          setMission(e.target.value);
+        }}
+        placeholder="Give Vikram a mission..."
+        rows="4"
+        style={styles.textarea}
+      />
+
+      <div style={styles.chips}>
+        {missionExamples.map(function(item) {
+          return (
+            <button
+              key={item}
+              onClick={function() {
+                runMission(item);
+              }}
+              style={styles.missionChip}
+            >
+              🎯 {item}
+            </button>
+          );
+        })}
+      </div>
+
+      <button
+        onClick={function() {
+          runMission();
+        }}
+        disabled={missionLoading || !mission.trim()}
+        style={styles.blueButton}
+      >
+        {missionLoading
+          ? "🤖 Mission Running..."
+          : "🚀 Start Mission"}
+      </button>
+
+      {missionStatus && (
+        <div style={styles.status}>
+          {missionStatus}
+        </div>
+      )}
+
+      {missionResult && (
+        <div style={styles.resultCard}>
+          <div style={styles.resultHeader}>
+            <h3>🧠 Vikram Decision Engine</h3>
+
+            <span style={styles.badge}>
+              {missionMode === "demo"
+                ? "⚡ DEMO"
+                : "🤖 LIVE AI"}
+            </span>
           </div>
 
-          <textarea
-            value={mission}
-            onChange={(e) =>
-              setMission(e.target.value)
-            }
-            placeholder="Give Vikram a mission..."
-            rows={4}
-            disabled={missionLoading}
-            style={{
-              width: "100%",
-              marginTop: "20px",
-              padding: "15px",
-              fontSize: "16px",
-              borderRadius: "10px",
-              border: "1px solid #bbb",
-              boxSizing: "border-box",
-              resize: "vertical",
-            }}
+          <div style={styles.steps}>
+            <span>🎯 Mission</span>
+            <span>🔎 Discovery</span>
+            <span>🧠 Analysis</span>
+            <span>⚖️ Comparison</span>
+            <span>💡 Recommendation</span>
+            <span>⚠️ Risk Check</span>
+          </div>
+
+          <h3>📋 Mission Report</h3>
+
+          <div style={styles.report}>
+            {missionResult}
+          </div>
+        </div>
+      )}
+    </section>
+
+    {scorecard && (
+      <section id="scorecard" style={styles.card}>
+        <h2 style={styles.heading}>
+          📊 Vikram Intelligence Scorecard
+        </h2>
+
+        <div style={styles.scoreGrid}>
+          <Score
+            title="🎯 Mission Score"
+            value={scorecard.missionScore + "/100"}
           />
 
-          {/* EXAMPLES */}
+          <Score
+            title="🧠 Confidence"
+            value={scorecard.confidence + "%"}
+          />
 
-          <div
-            style={{
-              marginTop: "15px",
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "10px",
-            }}
-          >
-            {missionExamples.map(
-              (example) => (
-                <button
-                  key={example}
-                  onClick={() =>
-                    runMission(example)
-                  }
-                  disabled={
-                    missionLoading
-                  }
-                  style={{
-                    padding:
-                      "9px 14px",
-                    borderRadius:
-                      "20px",
-                    border:
-                      "1px solid #b8c7db",
-                    background:
-                      "white",
-                    cursor:
-                      "pointer",
-                  }}
-                >
-                  🎯 {example}
-                </button>
-              )
-            )}
-          </div>
+          <Score
+            title="🔍 Analysis"
+            value={scorecard.analysis}
+          />
 
-          <button
-            onClick={() =>
-              runMission()
-            }
-            disabled={
-              missionLoading ||
-              !mission.trim()
-            }
-            style={{
-              marginTop: "20px",
-              padding:
-                "14px 28px",
-              fontSize: "16px",
-              fontWeight: "bold",
-              borderRadius: "9px",
-              border: "none",
-              background:
-                "#2563eb",
-              color: "white",
-              cursor: "pointer",
-              opacity:
-                missionLoading ||
-                !mission.trim()
-                  ? 0.6
-                  : 1,
-            }}
-          >
-            {missionLoading
-              ? "🤖 Mission Running..."
-              : "🚀 Start Mission"}
-          </button>
+          <Score
+            title="💡 Recommendation"
+            value={scorecard.recommendation}
+          />
 
-          {/* STATUS */}
+          <Score
+            title="⚠️ Risk"
+            value={scorecard.risk}
+          />
+        </div>
+      </section>
+    )}
 
-          {missionStatus && (
-            <div
-              style={{
-                marginTop: "20px",
-                padding: "15px",
-                borderRadius: "10px",
-                background: "white",
-                border: "1px solid #ddd",
-                fontWeight: "bold",
-              }}
-            >
-              {missionStatus}
-            </div>
-          )}
+    <section id="agent" style={styles.card}>
+      <h2 style={styles.heading}>
+        🧠 Autonomous Agent
+      </h2>
 
-          {/* =================================================
-              DECISION ENGINE
-          ================================================= */}
+      <p style={styles.text}>
+        Vikram discovers technology topics, analyzes them,
+        creates a publication and stores the result.
+      </p>
 
-          {missionResult && (
-            <div
-              style={{
-                marginTop: "25px",
-                padding: "25px",
-                background: "white",
-                borderRadius: "15px",
-                border:
-                  "1px solid #ddd",
-              }}
-            >
-              <h3>
-                🧠 Vikram Decision Engine
-              </h3>
+      <button
+        onClick={runAgent}
+        disabled={agentLoading}
+        style={styles.darkButton}
+      >
+        {agentLoading
+          ? "🤖 Agent Running..."
+          : "▶️ Run Autonomous Agent"}
+      </button>
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns:
-                    "repeat(auto-fit, minmax(130px, 1fr))",
-                  gap: "10px",
-                  marginTop: "15px",
-                  marginBottom: "25px",
-                }}
-              >
-                {[
-                  "🎯 Mission",
-                  "🔎 Discovery",
-                  "🧠 Analysis",
-                  "⚖️ Comparison",
-                  "💡 Recommendation",
-                  "⚠️ Risk Check",
-                ].map((step, index) => (
-                  <div
-                    key={step}
-                    style={{
-                      padding: "13px",
-                      textAlign:
-                        "center",
-                      borderRadius:
-                        "10px",
-                      background:
-                        index === 5
-                          ? "#fff7ed"
-                          : "#eff6ff",
-                      border:
-                        "1px solid #dbeafe",
-                      fontWeight:
-                        "bold",
-                    }}
-                  >
-                    {step}
-                  </div>
-                ))}
-              </div>
+      {agentStatus && (
+        <div style={styles.status}>
+          {agentStatus}
+        </div>
+      )}
+    </section>
 
-              {/* MISSION REPORT */}
+    {publication && (
+      <section style={styles.card}>
+        <h2 style={styles.heading}>
+          📰 Latest AI Publication
+        </h2>
 
-              <h3>
-                📋 Mission Report
-              </h3>
+        <h3>{publication.topic}</h3>
 
-              <div
-                style={{
-                  padding: "20px",
-                  background:
-                    "#f8f9fa",
-                  borderRadius:
-                    "10px",
-                  whiteSpace:
-                    "pre-wrap",
-                  lineHeight:
-                    "1.7",
-                }}
-              >
-                {missionResult}
-              </div>
-
-              {/* SCORECARD */}
-
-              {scorecard && (
-                <div
-                  style={{
-                    marginTop:
-                      "30px",
-                  }}
-                >
-                  <h3>
-                    📊 Vikram
-                    Intelligence
-                    Scorecard
-                  </h3>
-
-                  <div
-                    style={{
-                      display:
-                        "grid",
-                      gridTemplateColumns:
-                        "repeat(auto-fit, minmax(160px, 1fr))",
-                      gap: "15px",
-                      marginTop:
-                        "15px",
-                    }}
-                  >
-                    <ScoreCard
-                      title="🎯 Mission Score"
-                      value={`${scorecard.missionScore}/100`}
-                    />
-
-                    <ScoreCard
-                      title="🧠 Confidence"
-                      value={`${scorecard.confidence}%`}
-                    />
-
-                    <ScoreCard
-                      title="🔍 Analysis"
-                      value={
-                        scorecard.analysis
-                      }
-                    />
-
-                    <ScoreCard
-                      title="💡 Recommendation"
-                      value={
-                        scorecard.recommendation
-                      }
-                    />
-
-                    <ScoreCard
-                      title="⚠️ Risk"
-                      value={
-                        scorecard.risk
-                      }
-                    />
-                  </div>
-
-                  <div
-                    style={{
-                      marginTop:
-                        "20px",
-                      padding:
-                        "15px",
-                      borderRadius:
-                        "10px",
-                      background:
-                        missionMode ===
-                        "demo"
-                          ? "#faf5ff"
-                          : "#ecfdf5",
-                      border:
-                        "1px solid #ddd",
-                    }}
-                  >
-                    <strong>
-                      {missionMode ===
-                      "demo"
-                        ? "⚡ Demo Intelligence Mode"
-                        : "🤖 Live AI Intelligence Mode"}
-                    </strong>
-
-                    <p
-                      style={{
-                        marginBottom: 0,
-                      }}
-                    >
-                      Vikram evaluates
-                      the mission,
-                      compares
-                      alternatives,
-                      identifies risks
-                      and produces a
-                      final decision.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </section>
-
-        {/* =================================================
-            AUTONOMOUS AGENT
-        ================================================= */}
-
-        <section
-          style={{
-            background: "white",
-            padding: "25px",
-            borderRadius: "15px",
-            marginBottom: "30px",
-            border: "1px solid #ddd",
-          }}
-        >
-          <h2>
-            🧠 Autonomous Agent
-          </h2>
-
-          <p>
-            Vikram discovers live technology
-            topics, evaluates them, writes a
-            post and stores the publication.
+        {publication.published_at && (
+          <p style={styles.text}>
+            Published: {publication.published_at}
           </p>
+        )}
 
-          <button
-            onClick={runAgent}
-            disabled={agentLoading}
-            style={{
-              padding:
-                "14px 28px",
-              fontSize: "16px",
-              fontWeight: "bold",
-              borderRadius: "8px",
-              border: "none",
-              background:
-                "#111827",
-              color: "white",
-              cursor: "pointer",
-              opacity:
-                agentLoading
-                  ? 0.7
-                  : 1,
-            }}
-          >
-            {agentLoading
-              ? "🤖 Agent Running..."
-              : "▶️ Run Autonomous Agent"}
-          </button>
-
-          {agentStatus && (
-            <div
-              style={{
-                marginTop: "20px",
-                padding: "15px",
-                borderRadius: "10px",
-                background:
-                  "#f8f9fa",
-                border:
-                  "1px solid #ddd",
-              }}
+        {publication.source && (
+          <p>
+            <a
+              href={publication.source}
+              target="_blank"
+              rel="noreferrer"
             >
-              <strong>
-                {agentStatus}
-              </strong>
-            </div>
-          )}
-        </section>
+              View source
+            </a>
+          </p>
+        )}
 
-        {/* =================================================
-            PUBLICATION
-        ================================================= */}
+        <div style={styles.report}>
+          {publication.post}
+        </div>
 
-        {publication && (
-          <section
-            style={{
-              background:
-                "white",
-              padding: "30px",
-              borderRadius:
-                "15px",
-              border:
-                "1px solid #ddd",
-            }}
-          >
-            <h2>
-              📰 Latest AI
-              Publication
-            </h2>
-
-            <h3>
-              {publication.topic}
-            </h3>
+        {publication.reason && (
+          <div style={styles.reason}>
+            <strong>🤖 Agent Decision</strong>
 
             <p>
-              <strong>
-                Published:
-              </strong>{" "}
-              {publication.published_at}
+              {publication.reason.why_selected}
             </p>
-
-            {publication.source && (
-              <p>
-                <strong>
-                  Source:
-                </strong>{" "}
-                <a
-                  href={
-                    publication.source
-                  }
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  View source
-                </a>
-              </p>
-            )}
-
-            <div
-              style={{
-                marginTop:
-                  "20px",
-                padding:
-                  "20px",
-                background:
-                  "#f8f9fa",
-                borderRadius:
-                  "10px",
-                whiteSpace:
-                  "pre-wrap",
-                lineHeight:
-                  "1.6",
-              }}
-            >
-              {publication.post}
-            </div>
-
-            {publication.reason && (
-              <div
-                style={{
-                  marginTop:
-                    "20px",
-                  padding:
-                    "15px",
-                  borderRadius:
-                    "10px",
-                  background:
-                    "#eef6ff",
-                }}
-              >
-                <strong>
-                  🤖 Agent Decision
-                </strong>
-
-                <p>
-                  {
-                    publication
-                      .reason
-                      .why_selected
-                  }
-                </p>
-
-                {publication.reason
-                  .decision_mode && (
-                  <p>
-                    <strong>
-                      Mode:
-                    </strong>{" "}
-                    {
-                      publication
-                        .reason
-                        .decision_mode
-                    }
-                  </p>
-                )}
-              </div>
-            )}
-          </section>
+          </div>
         )}
-      </div>
-    </div>
-  );
+      </section>
+    )}
+
+    <footer style={styles.footer}>
+      <strong>Vikram AI</strong>
+      <span>Autonomous Technology Intelligence</span>
+      <span>Built for ViCodathon 2026 🚀</span>
+    </footer>
+
+  </div>
+</div>
+
+
+);
 }
 
-// =====================================================
-// SCORECARD COMPONENT
-// =====================================================
-
-function ScoreCard({ title, value }) {
-  return (
-    <div
-      style={{
-        padding: "20px",
-        borderRadius: "14px",
-        background:
-          "linear-gradient(135deg, #f8fafc, #ffffff)",
-        border:
-          "1px solid #e2e8f0",
-        textAlign: "center",
-        boxShadow:
-          "0 4px 12px rgba(0,0,0,0.04)",
-      }}
-    >
-      <div
-        style={{
-          fontSize: "14px",
-          color: "#64748b",
-          marginBottom:
-            "10px",
-        }}
-      >
-        {title}
-      </div>
-
-      <div
-        style={{
-          fontSize: "22px",
-          fontWeight: "bold",
-          color: "#111827",
-        }}
-      >
-        {value}
-      </div>
-    </div>
-  );
+function Score({ title, value }) {
+return ( <div style={styles.scoreCard}> <div style={styles.scoreTitle}>{title}</div> <div style={styles.scoreValue}>{value}</div> </div>
+);
 }
+
+const styles = {
+page: {
+minHeight: "100vh",
+background: "#f1f5f9",
+fontFamily: "Arial, sans-serif",
+padding: "35px 20px",
+color: "#0f172a"
+},
+
+container: {
+maxWidth: "1100px",
+margin: "0 auto"
+},
+
+header: {
+textAlign: "center",
+padding: "20px 10px 30px"
+},
+
+logo: {
+width: "70px",
+height: "70px",
+margin: "auto",
+borderRadius: "20px",
+display: "flex",
+alignItems: "center",
+justifyContent: "center",
+background: "linear-gradient(135deg, #2563eb, #7c3aed)",
+color: "white",
+fontSize: "32px",
+fontWeight: "900"
+},
+
+title: {
+fontSize: "46px",
+margin: "15px 0 8px"
+},
+
+subtitle: {
+color: "#64748b",
+fontSize: "18px"
+},
+
+online: {
+display: "inline-block",
+padding: "8px 15px",
+borderRadius: "20px",
+background: "#dcfce7",
+color: "#15803d",
+fontWeight: "bold"
+},
+
+nav: {
+display: "flex",
+justifyContent: "center",
+flexWrap: "wrap",
+gap: "10px",
+marginBottom: "25px"
+},
+
+navButton: {
+textDecoration: "none",
+padding: "10px 16px",
+borderRadius: "10px",
+background: "white",
+border: "1px solid #e2e8f0",
+color: "#334155",
+fontWeight: "bold"
+},
+
+card: {
+background: "white",
+padding: "30px",
+borderRadius: "20px",
+marginBottom: "25px",
+border: "1px solid #e2e8f0",
+boxShadow: "0 10px 30px rgba(15,23,42,0.06)"
+},
+
+missionCard: {
+background: "white",
+padding: "30px",
+borderRadius: "20px",
+marginBottom: "25px",
+border: "1px solid #bfdbfe",
+boxShadow: "0 10px 30px rgba(37,99,235,0.08)"
+},
+
+heading: {
+fontSize: "27px",
+marginTop: 0
+},
+
+text: {
+color: "#64748b",
+lineHeight: "1.7"
+},
+
+textarea: {
+width: "100%",
+boxSizing: "border-box",
+padding: "16px",
+borderRadius: "12px",
+border: "1px solid #cbd5e1",
+fontSize: "16px",
+resize: "vertical"
+},
+
+chips: {
+display: "flex",
+flexWrap: "wrap",
+gap: "8px",
+marginTop: "12px"
+},
+
+chip: {
+padding: "9px 13px",
+borderRadius: "20px",
+border: "1px solid #bfdbfe",
+background: "#eff6ff",
+color: "#1d4ed8",
+cursor: "pointer"
+},
+
+missionChip: {
+padding: "9px 13px",
+borderRadius: "20px",
+border: "1px solid #bfdbfe",
+background: "#f8fafc",
+color: "#1d4ed8",
+cursor: "pointer"
+},
+
+primaryButton: {
+marginTop: "18px",
+padding: "14px 24px",
+border: "none",
+borderRadius: "12px",
+background: "#2563eb",
+color: "white",
+fontSize: "16px",
+fontWeight: "bold",
+cursor: "pointer"
+},
+
+blueButton: {
+marginTop: "18px",
+padding: "14px 24px",
+border: "none",
+borderRadius: "12px",
+background: "linear-gradient(135deg, #2563eb, #4f46e5)",
+color: "white",
+fontSize: "16px",
+fontWeight: "bold",
+cursor: "pointer"
+},
+
+darkButton: {
+padding: "14px 24px",
+border: "none",
+borderRadius: "12px",
+background: "#111827",
+color: "white",
+fontSize: "16px",
+fontWeight: "bold",
+cursor: "pointer"
+},
+
+demoBox: {
+padding: "20px",
+margin: "20px 0",
+borderRadius: "15px",
+background: "#faf5ff",
+border: "1px solid #e9d5ff"
+},
+
+demoButton: {
+padding: "13px 20px",
+border: "none",
+borderRadius: "10px",
+background: "#7c3aed",
+color: "white",
+fontWeight: "bold",
+cursor: "pointer"
+},
+
+response: {
+marginTop: "25px",
+padding: "20px",
+borderRadius: "15px",
+background: "#f8fafc",
+border: "1px solid #dbeafe"
+},
+
+responseText: {
+whiteSpace: "pre-wrap",
+lineHeight: "1.7",
+color: "#334155"
+},
+
+status: {
+marginTop: "18px",
+padding: "14px",
+borderRadius: "12px",
+background: "#f8fafc",
+border: "1px solid #e2e8f0",
+fontWeight: "bold"
+},
+
+resultCard: {
+marginTop: "25px",
+padding: "25px",
+borderRadius: "17px",
+border: "1px solid #e2e8f0",
+background: "#ffffff"
+},
+
+resultHeader: {
+display: "flex",
+justifyContent: "space-between",
+alignItems: "center",
+flexWrap: "wrap"
+},
+
+badge: {
+padding: "7px 12px",
+borderRadius: "20px",
+background: "#f3e8ff",
+color: "#7e22ce",
+fontWeight: "bold"
+},
+
+steps: {
+display: "grid",
+gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+gap: "10px",
+margin: "20px 0"
+},
+
+stepsSpan: {
+padding: "10px",
+background: "#eff6ff",
+borderRadius: "10px"
+},
+
+report: {
+padding: "20px",
+borderRadius: "13px",
+background: "#f8fafc",
+border: "1px solid #e2e8f0",
+whiteSpace: "pre-wrap",
+lineHeight: "1.7",
+color: "#334155"
+},
+
+scoreGrid: {
+display: "grid",
+gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+gap: "14px"
+},
+
+scoreCard: {
+padding: "20px",
+borderRadius: "15px",
+background: "#f8fafc",
+border: "1px solid #e2e8f0",
+textAlign: "center"
+},
+
+scoreTitle: {
+color: "#64748b",
+fontSize: "13px",
+fontWeight: "bold"
+},
+
+scoreValue: {
+marginTop: "10px",
+fontSize: "22px",
+fontWeight: "900"
+},
+
+reason: {
+marginTop: "20px",
+padding: "18px",
+borderRadius: "12px",
+background: "#eff6ff",
+border: "1px solid #bfdbfe"
+},
+
+footer: {
+display: "flex",
+justifyContent: "center",
+flexWrap: "wrap",
+gap: "15px",
+padding: "25px",
+color: "#64748b",
+fontSize: "13px"
+}
+};
 
 export default App;
