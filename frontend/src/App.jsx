@@ -2,6 +2,13 @@ import { useState } from "react";
 
 const API_URL = "https://vicodathon2026.onrender.com";
 
+const quickPrompts = [
+  "Explain AI agents in simple terms",
+  "What are the latest AI trends?",
+  "How can AI automate business workflows?",
+  "Explain generative AI and its applications",
+];
+
 function App() {
   const [prompt, setPrompt] = useState("");
   const [response, setResponse] = useState("");
@@ -11,9 +18,12 @@ function App() {
   const [publication, setPublication] = useState(null);
   const [agentStatus, setAgentStatus] = useState("");
 
-  const askVikram = async () => {
-    if (!prompt.trim()) return;
+  const askVikram = async (customPrompt = null) => {
+    const question = customPrompt ?? prompt;
 
+    if (!question.trim() || chatLoading) return;
+
+    setPrompt(question);
     setChatLoading(true);
     setResponse("");
 
@@ -24,7 +34,7 @@ function App() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          prompt: prompt,
+          prompt: question,
         }),
       });
 
@@ -33,21 +43,32 @@ function App() {
       setResponse(data.response || "No response received.");
     } catch (error) {
       console.error(error);
-      setResponse("❌ Backend connection failed.");
+      setResponse(
+        "❌ Backend connection failed. The server may be waking up. Please try again."
+      );
+    } finally {
+      setChatLoading(false);
     }
-
-    setChatLoading(false);
   };
 
   const runAgent = async () => {
+    if (agentLoading) return;
+
     setAgentLoading(true);
-    setAgentStatus("🔎 Discovering live AI topics...");
     setPublication(null);
 
+    setAgentStatus("🔎 Discovering live technology topics...");
+
     try {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+
+      setAgentStatus("🧠 Evaluating topics with Vikram AI...");
+
       const res = await fetch(`${API_URL}/agent/run`, {
         method: "POST",
       });
+
+      setAgentStatus("✍️ Creating AI publication...");
 
       const data = await res.json();
 
@@ -61,10 +82,12 @@ function App() {
       }
     } catch (error) {
       console.error(error);
-      setAgentStatus("❌ Agent connection failed.");
+      setAgentStatus(
+        "❌ Agent connection failed. Please try again."
+      );
+    } finally {
+      setAgentLoading(false);
     }
-
-    setAgentLoading(false);
   };
 
   return (
@@ -82,6 +105,7 @@ function App() {
           margin: "auto",
         }}
       >
+        {/* HEADER */}
         <header style={{ marginBottom: "40px" }}>
           <h1>🚀 Vikram AI</h1>
 
@@ -90,6 +114,7 @@ function App() {
           </p>
         </header>
 
+        {/* CHAT */}
         <section
           style={{
             background: "white",
@@ -106,6 +131,7 @@ function App() {
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="Ask Vikram AI something..."
             rows={5}
+            disabled={chatLoading}
             style={{
               width: "100%",
               padding: "15px",
@@ -113,23 +139,60 @@ function App() {
               borderRadius: "10px",
               border: "1px solid #ccc",
               boxSizing: "border-box",
+              resize: "vertical",
             }}
           />
 
-          <button
-            onClick={askVikram}
-            disabled={chatLoading}
+          {/* QUICK PROMPTS */}
+          <div
             style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "10px",
               marginTop: "15px",
+            }}
+          >
+            {quickPrompts.map((item) => (
+              <button
+                key={item}
+                onClick={() => askVikram(item)}
+                disabled={chatLoading}
+                style={{
+                  padding: "9px 14px",
+                  borderRadius: "20px",
+                  border: "1px solid #ccc",
+                  background: "#f8f9fa",
+                  cursor: chatLoading
+                    ? "not-allowed"
+                    : "pointer",
+                }}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => askVikram()}
+            disabled={chatLoading || !prompt.trim()}
+            style={{
+              marginTop: "18px",
               padding: "12px 25px",
               fontSize: "16px",
               borderRadius: "8px",
               border: "none",
-              cursor: "pointer",
+              cursor:
+                chatLoading || !prompt.trim()
+                  ? "not-allowed"
+                  : "pointer",
+              opacity:
+                chatLoading || !prompt.trim()
+                  ? 0.6
+                  : 1,
             }}
           >
             {chatLoading
-              ? "🤖 Thinking..."
+              ? "🤖 Vikram is thinking..."
               : "Ask Vikram AI"}
           </button>
 
@@ -143,15 +206,21 @@ function App() {
                 border: "1px solid #ddd",
               }}
             >
-              <h3>Vikram AI Response</h3>
+              <h3>🤖 Vikram AI Response</h3>
 
-              <p style={{ whiteSpace: "pre-wrap" }}>
+              <p
+                style={{
+                  whiteSpace: "pre-wrap",
+                  lineHeight: "1.6",
+                }}
+              >
                 {response}
               </p>
             </div>
           )}
         </section>
 
+        {/* AUTONOMOUS AGENT */}
         <section
           style={{
             background: "white",
@@ -181,6 +250,7 @@ function App() {
               cursor: agentLoading
                 ? "not-allowed"
                 : "pointer",
+              opacity: agentLoading ? 0.7 : 1,
             }}
           >
             {agentLoading
@@ -188,18 +258,23 @@ function App() {
               : "▶️ Run Autonomous Agent"}
           </button>
 
+          {/* AGENT ACTIVITY */}
           {agentStatus && (
-            <p
+            <div
               style={{
                 marginTop: "20px",
-                fontWeight: "bold",
+                padding: "15px",
+                borderRadius: "10px",
+                background: "#f8f9fa",
+                border: "1px solid #ddd",
               }}
             >
-              {agentStatus}
-            </p>
+              <strong>{agentStatus}</strong>
+            </div>
           )}
         </section>
 
+        {/* PUBLICATION */}
         {publication && (
           <section
             style={{
