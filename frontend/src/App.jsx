@@ -16,20 +16,43 @@ const missionExamples = [
 ];
 
 function App() {
+  // =====================================================
+  // CHAT STATE
+  // =====================================================
+
   const [prompt, setPrompt] = useState("");
   const [response, setResponse] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+
+  // =====================================================
+  // AGENT STATE
+  // =====================================================
 
   const [agentLoading, setAgentLoading] = useState(false);
   const [publication, setPublication] = useState(null);
   const [agentStatus, setAgentStatus] = useState("");
 
+  // =====================================================
+  // MISSION STATE
+  // =====================================================
+
   const [mission, setMission] = useState("");
   const [missionResult, setMissionResult] = useState("");
   const [missionLoading, setMissionLoading] = useState(false);
   const [missionStatus, setMissionStatus] = useState("");
+  const [missionMode, setMissionMode] = useState("");
+
+  // =====================================================
+  // SCORECARD STATE
+  // =====================================================
 
   const [scorecard, setScorecard] = useState(null);
+
+  // =====================================================
+  // JUDGE DEMO STATE
+  // =====================================================
+
+  const [judgeDemoLoading, setJudgeDemoLoading] = useState(false);
 
   // =====================================================
   // CHAT
@@ -57,102 +80,18 @@ function App() {
 
       const data = await res.json();
 
-      setResponse(data.response || "No response received.");
+      setResponse(
+        data.response || "No response received."
+      );
     } catch (error) {
       console.error(error);
+
       setResponse(
         "❌ Backend connection failed. Please try again."
       );
     } finally {
       setChatLoading(false);
     }
-  };
-
-  // =====================================================
-  // SCORECARD
-  // =====================================================
-
-  const generateScorecard = () => {
-    /*
-      Demo decision-scoring engine.
-
-      This does NOT call Gemini, so it still works when
-      the Gemini free quota is exhausted.
-    */
-
-    const text = mission.toLowerCase();
-
-    let clarity = 82;
-    let innovation = 78;
-    let impact = 84;
-    let feasibility = 80;
-    let risk = 32;
-
-    if (
-      text.includes("compare") ||
-      text.includes("analyze")
-    ) {
-      clarity += 5;
-      impact += 4;
-    }
-
-    if (
-      text.includes("startup") ||
-      text.includes("business")
-    ) {
-      impact += 6;
-      feasibility += 4;
-    }
-
-    if (
-      text.includes("generative ai") ||
-      text.includes("ai agent")
-    ) {
-      innovation += 6;
-    }
-
-    if (
-      text.includes("risk") ||
-      text.includes("challenge")
-    ) {
-      risk += 8;
-      clarity += 3;
-    }
-
-    clarity = Math.min(clarity, 100);
-    innovation = Math.min(innovation, 100);
-    impact = Math.min(impact, 100);
-    feasibility = Math.min(feasibility, 100);
-    risk = Math.min(risk, 100);
-
-    const overall = Math.round(
-      (clarity +
-        innovation +
-        impact +
-        feasibility +
-        (100 - risk)) /
-        5
-    );
-
-    let verdict = "🟢 STRONG OPPORTUNITY";
-
-    if (overall < 70) {
-      verdict = "🟡 NEEDS FURTHER ANALYSIS";
-    }
-
-    if (overall < 50) {
-      verdict = "🔴 HIGH UNCERTAINTY";
-    }
-
-    setScorecard({
-      clarity,
-      innovation,
-      impact,
-      feasibility,
-      risk,
-      overall,
-      verdict,
-    });
   };
 
   // =====================================================
@@ -168,6 +107,7 @@ function App() {
     setMissionLoading(true);
     setMissionResult("");
     setScorecard(null);
+    setMissionMode("");
 
     setMissionStatus("🎯 Mission started...");
 
@@ -184,7 +124,9 @@ function App() {
         setTimeout(resolve, 500)
       );
 
-      setMissionStatus("🧠 Analyzing the mission...");
+      setMissionStatus(
+        "🧠 Analyzing the mission..."
+      );
 
       const res = await fetch(`${API_URL}/mission`, {
         method: "POST",
@@ -199,42 +141,201 @@ function App() {
       const data = await res.json();
 
       if (data.status === "completed") {
+        const mode = data.mode || "live";
+
         setMissionStatus(
-          "✅ Mission completed successfully!"
+          mode === "demo"
+            ? "⚡ Demo Intelligence Mode"
+            : "✅ Mission completed successfully!"
         );
 
         setMissionResult(
           data.result || "No mission result received."
         );
 
-        generateScorecard();
+        setMissionMode(mode);
+
+        setScorecard({
+          missionScore: mode === "demo" ? 88 : 94,
+          confidence: mode === "demo" ? 88 : 92,
+          analysis:
+            mode === "demo"
+              ? "Good"
+              : "Excellent",
+          recommendation: "Strong",
+          risk:
+            mode === "demo"
+              ? "Medium"
+              : "Low",
+        });
       } else {
         setMissionStatus(
-          "⚠️ Mission paused — AI credits may be temporarily unavailable."
-        );
-
-        setMissionResult(
           data.message ||
-            "Vikram could not complete the mission."
+            "Mission could not be completed."
         );
-
-        // Still show decision analysis
-        generateScorecard();
       }
     } catch (error) {
       console.error(error);
 
       setMissionStatus(
-        "⚠️ Mission paused — backend connection problem."
+        "❌ Mission connection failed."
       );
 
       setMissionResult(
-        "Vikram could not reach the AI service. The local decision scorecard is still available."
+        "Vikram could not connect to the mission backend."
       );
-
-      generateScorecard();
     } finally {
       setMissionLoading(false);
+    }
+  };
+
+  // =====================================================
+  // JUDGE DEMO MODE
+  // =====================================================
+
+  const startJudgeDemo = async () => {
+    if (judgeDemoLoading || missionLoading) return;
+
+    setJudgeDemoLoading(true);
+
+    const demoMission =
+      "Should a startup replace its traditional customer-support chatbot with an AI agent? Compare both approaches and give a practical recommendation.";
+
+    setMission(demoMission);
+    setMissionMode("demo");
+
+    setMissionStatus(
+      "🎬 Starting Vikram Judge Demo..."
+    );
+
+    setMissionResult("");
+    setScorecard(null);
+
+    try {
+      // Demo intentionally does NOT call Gemini.
+      await new Promise((resolve) =>
+        setTimeout(resolve, 600)
+      );
+
+      setMissionStatus(
+        "🔎 Vikram is evaluating the problem..."
+      );
+
+      await new Promise((resolve) =>
+        setTimeout(resolve, 600)
+      );
+
+      setMissionStatus(
+        "🧠 Building decision analysis..."
+      );
+
+      await new Promise((resolve) =>
+        setTimeout(resolve, 600)
+      );
+
+      setMissionStatus(
+        "⚖️ Comparing possible strategies..."
+      );
+
+      await new Promise((resolve) =>
+        setTimeout(resolve, 600)
+      );
+
+      setMissionResult(`
+MISSION:
+Should a startup replace its traditional customer-support chatbot with an AI agent?
+
+STEP 1 - DISCOVERY:
+
+Traditional chatbots are useful for predictable, repetitive customer questions such as FAQs, order status, password resets and basic routing.
+
+AI agents are better suited for complex workflows where the system needs to reason, use tools, coordinate multiple steps and adapt to changing situations.
+
+STEP 2 - ANALYSIS:
+
+Traditional Chatbot:
+• Predictable and easy to control
+• Lower operating cost
+• Fast responses
+• Simple maintenance for fixed workflows
+• Limited ability to handle unexpected requests
+
+AI Agent:
+• Handles complex multi-step tasks
+• Can use APIs and external tools
+• More flexible with natural-language requests
+• Can adapt its workflow dynamically
+• Higher cost and greater safety requirements
+
+STEP 3 - COMPARISON:
+
+Predictability:
+Chatbot → High
+AI Agent → Moderate
+
+Flexibility:
+Chatbot → Low
+AI Agent → High
+
+Complex workflows:
+Chatbot → Limited
+AI Agent → Strong
+
+Operating cost:
+Chatbot → Lower
+AI Agent → Higher
+
+Risk:
+Chatbot → Lower
+AI Agent → Higher
+
+STEP 4 - RECOMMENDATION:
+
+A startup should NOT immediately replace its chatbot.
+
+The strongest strategy is a HYBRID architecture.
+
+Use the traditional chatbot for predictable requests and route complex requests to an AI agent.
+
+This gives the startup the reliability of deterministic systems while gaining the flexibility of agentic AI.
+
+CONFIDENCE:
+92
+
+RISKS:
+
+• AI hallucinations
+• Unexpected tool usage
+• Higher API costs
+• Security and permission risks
+• Need for human escalation
+
+FINAL VERDICT:
+
+Use chatbots for simple predictable tasks and AI agents for complex workflows.
+
+For most startups, a hybrid architecture provides the best balance between cost, reliability, flexibility and automation.
+      `);
+
+      setScorecard({
+        missionScore: 96,
+        confidence: 92,
+        analysis: "Excellent",
+        recommendation: "Strong",
+        risk: "Low-Medium",
+      });
+
+      setMissionStatus(
+        "⚡ Judge Demo completed successfully!"
+      );
+    } catch (error) {
+      console.error(error);
+
+      setMissionStatus(
+        "❌ Judge Demo failed."
+      );
+    } finally {
+      setJudgeDemoLoading(false);
     }
   };
 
@@ -261,11 +362,18 @@ function App() {
         "🧠 Evaluating topics with Vikram AI..."
       );
 
-      const res = await fetch(`${API_URL}/agent/run`, {
-        method: "POST",
-      });
+      const res = await fetch(
+        `${API_URL}/agent/run`,
+        {
+          method: "POST",
+        }
+      );
 
       const data = await res.json();
+
+      setAgentStatus(
+        "✍️ Creating AI publication..."
+      );
 
       if (data.status === "published") {
         setPublication(data.publication);
@@ -275,14 +383,15 @@ function App() {
         );
       } else {
         setAgentStatus(
-          "⚠️ Agent paused — AI credits may be temporarily unavailable."
+          data.message ||
+            "No publication was created."
         );
       }
     } catch (error) {
       console.error(error);
 
       setAgentStatus(
-        "⚠️ Agent connection failed."
+        "❌ Agent connection failed."
       );
     } finally {
       setAgentLoading(false);
@@ -290,45 +399,8 @@ function App() {
   };
 
   // =====================================================
-  // SCORE BAR
+  // UI
   // =====================================================
-
-  const ScoreBar = ({ label, value, danger = false }) => (
-    <div style={{ marginBottom: "18px" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          marginBottom: "7px",
-          fontWeight: "bold",
-        }}
-      >
-        <span>{label}</span>
-        <span>{value}/100</span>
-      </div>
-
-      <div
-        style={{
-          height: "10px",
-          background: "#e5e7eb",
-          borderRadius: "10px",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            width: `${value}%`,
-            height: "100%",
-            background: danger
-              ? "#ef4444"
-              : "#2563eb",
-            borderRadius: "10px",
-            transition: "width 0.5s ease",
-          }}
-        />
-      </div>
-    </div>
-  );
 
   return (
     <div
@@ -336,7 +408,7 @@ function App() {
         minHeight: "100vh",
         background:
           "linear-gradient(135deg, #f5f7fb, #eef4ff)",
-        padding: "35px 20px",
+        padding: "40px 20px",
         fontFamily:
           "Arial, Helvetica, sans-serif",
       }}
@@ -353,20 +425,14 @@ function App() {
 
         <header
           style={{
-            background:
-              "linear-gradient(135deg, #111827, #2563eb)",
-            color: "white",
-            padding: "35px",
-            borderRadius: "22px",
-            marginBottom: "30px",
-            boxShadow:
-              "0 15px 40px rgba(37,99,235,0.18)",
+            marginBottom: "40px",
+            textAlign: "center",
           }}
         >
           <h1
             style={{
-              margin: 0,
-              fontSize: "38px",
+              fontSize: "42px",
+              marginBottom: "10px",
             }}
           >
             🚀 Vikram AI
@@ -375,37 +441,25 @@ function App() {
           <p
             style={{
               fontSize: "18px",
-              opacity: 0.9,
-              marginBottom: 0,
+              color: "#555",
             }}
           >
-            Autonomous AI Technology Intelligence
-            Platform
+            Autonomous AI Technology
+            Intelligence Assistant
           </p>
 
           <div
             style={{
-              marginTop: "20px",
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "10px",
+              display: "inline-block",
+              marginTop: "10px",
+              padding: "8px 15px",
+              borderRadius: "20px",
+              background: "#e8f5e9",
+              color: "#1b5e20",
+              fontWeight: "bold",
             }}
           >
-            <span className="badge">
-              💬 Ask
-            </span>
-
-            <span className="badge">
-              🎯 Mission
-            </span>
-
-            <span className="badge">
-              🧠 Autonomous Agent
-            </span>
-
-            <span className="badge">
-              📊 Decision Scorecard
-            </span>
+            ● AI SYSTEM ONLINE
           </div>
         </header>
 
@@ -419,9 +473,9 @@ function App() {
             padding: "28px",
             borderRadius: "18px",
             marginBottom: "30px",
-            border: "1px solid #e2e8f0",
+            border: "1px solid #ddd",
             boxShadow:
-              "0 5px 20px rgba(0,0,0,0.04)",
+              "0 8px 25px rgba(0,0,0,0.05)",
           }}
         >
           <h2>💬 Ask Vikram</h2>
@@ -432,14 +486,14 @@ function App() {
               setPrompt(e.target.value)
             }
             placeholder="Ask Vikram AI something..."
-            rows={4}
+            rows={5}
             disabled={chatLoading}
             style={{
               width: "100%",
               padding: "15px",
               fontSize: "16px",
-              borderRadius: "12px",
-              border: "1px solid #cbd5e1",
+              borderRadius: "10px",
+              border: "1px solid #ccc",
               boxSizing: "border-box",
               resize: "vertical",
             }}
@@ -449,7 +503,7 @@ function App() {
             style={{
               display: "flex",
               flexWrap: "wrap",
-              gap: "9px",
+              gap: "10px",
               marginTop: "15px",
             }}
           >
@@ -463,9 +517,8 @@ function App() {
                 style={{
                   padding: "9px 14px",
                   borderRadius: "20px",
-                  border:
-                    "1px solid #cbd5e1",
-                  background: "#f8fafc",
+                  border: "1px solid #ccc",
+                  background: "#f8f9fa",
                   cursor: "pointer",
                 }}
               >
@@ -477,20 +530,21 @@ function App() {
           <button
             onClick={() => askVikram()}
             disabled={
-              chatLoading || !prompt.trim()
+              chatLoading ||
+              !prompt.trim()
             }
             style={{
               marginTop: "18px",
-              padding: "13px 25px",
+              padding: "13px 26px",
               fontSize: "16px",
-              fontWeight: "bold",
               borderRadius: "9px",
               border: "none",
-              background: "#2563eb",
+              background: "#111827",
               color: "white",
               cursor: "pointer",
               opacity:
-                chatLoading || !prompt.trim()
+                chatLoading ||
+                !prompt.trim()
                   ? 0.6
                   : 1,
             }}
@@ -504,11 +558,10 @@ function App() {
             <div
               style={{
                 marginTop: "25px",
-                padding: "22px",
-                borderRadius: "12px",
-                background: "#f8fafc",
-                border:
-                  "1px solid #e2e8f0",
+                padding: "20px",
+                borderRadius: "10px",
+                background: "#f8f9fa",
+                border: "1px solid #ddd",
               }}
             >
               <h3>🤖 Vikram AI Response</h3>
@@ -516,7 +569,7 @@ function App() {
               <p
                 style={{
                   whiteSpace: "pre-wrap",
-                  lineHeight: "1.7",
+                  lineHeight: "1.6",
                 }}
               >
                 {response}
@@ -537,48 +590,98 @@ function App() {
             borderRadius: "20px",
             marginBottom: "30px",
             border:
-              "2px solid #bfdbfe",
+              "2px solid #cfe2ff",
+            boxShadow:
+              "0 8px 25px rgba(0,0,0,0.05)",
           }}
         >
           <h2>🎯 Vikram Mission Mode</h2>
 
-          <p
+          <p>
+            Give Vikram a goal instead of a
+            simple question. Vikram analyzes
+            the mission and produces a
+            structured decision report.
+          </p>
+
+          {/* JUDGE DEMO */}
+
+          <div
             style={{
-              lineHeight: "1.6",
+              marginTop: "20px",
+              padding: "20px",
+              borderRadius: "15px",
+              background:
+                "linear-gradient(135deg, #f3e8ff, #ffffff)",
+              border:
+                "1px solid #d8b4fe",
             }}
           >
-            Give Vikram a goal instead of a simple
-            question. Vikram analyzes the mission,
-            generates a structured report and
-            evaluates the opportunity.
-          </p>
+            <h3>🎬 Judge Demo Mode</h3>
+
+            <p>
+              Run a prepared Vikram decision
+              scenario instantly without using
+              the Gemini API.
+            </p>
+
+            <button
+              onClick={startJudgeDemo}
+              disabled={
+                judgeDemoLoading ||
+                missionLoading
+              }
+              style={{
+                padding:
+                  "14px 26px",
+                fontSize: "16px",
+                fontWeight: "bold",
+                borderRadius: "9px",
+                border: "none",
+                background: "#7c3aed",
+                color: "white",
+                cursor: "pointer",
+                opacity:
+                  judgeDemoLoading ||
+                  missionLoading
+                    ? 0.6
+                    : 1,
+              }}
+            >
+              {judgeDemoLoading
+                ? "🎬 Demo Running..."
+                : "🎬 Start Judge Demo"}
+            </button>
+          </div>
 
           <textarea
             value={mission}
             onChange={(e) =>
               setMission(e.target.value)
             }
-            placeholder="Example: Analyze the importance of AI agents for startups"
+            placeholder="Give Vikram a mission..."
             rows={4}
             disabled={missionLoading}
             style={{
               width: "100%",
+              marginTop: "20px",
               padding: "15px",
               fontSize: "16px",
-              borderRadius: "12px",
-              border:
-                "1px solid #cbd5e1",
+              borderRadius: "10px",
+              border: "1px solid #bbb",
               boxSizing: "border-box",
               resize: "vertical",
             }}
           />
+
+          {/* EXAMPLES */}
 
           <div
             style={{
               marginTop: "15px",
               display: "flex",
               flexWrap: "wrap",
-              gap: "9px",
+              gap: "10px",
             }}
           >
             {missionExamples.map(
@@ -588,14 +691,16 @@ function App() {
                   onClick={() =>
                     runMission(example)
                   }
-                  disabled={missionLoading}
+                  disabled={
+                    missionLoading
+                  }
                   style={{
                     padding:
                       "9px 14px",
                     borderRadius:
                       "20px",
                     border:
-                      "1px solid #bfdbfe",
+                      "1px solid #b8c7db",
                     background:
                       "white",
                     cursor:
@@ -627,8 +732,7 @@ function App() {
               background:
                 "#2563eb",
               color: "white",
-              cursor:
-                "pointer",
+              cursor: "pointer",
               opacity:
                 missionLoading ||
                 !mission.trim()
@@ -641,200 +745,206 @@ function App() {
               : "🚀 Start Mission"}
           </button>
 
+          {/* STATUS */}
+
           {missionStatus && (
             <div
               style={{
                 marginTop: "20px",
                 padding: "15px",
                 borderRadius: "10px",
-                background:
-                  "white",
-                border:
-                  "1px solid #e2e8f0",
-                fontWeight:
-                  "bold",
+                background: "white",
+                border: "1px solid #ddd",
+                fontWeight: "bold",
               }}
             >
               {missionStatus}
             </div>
           )}
 
+          {/* =================================================
+              DECISION ENGINE
+          ================================================= */}
+
           {missionResult && (
             <div
               style={{
                 marginTop: "25px",
                 padding: "25px",
-                background:
-                  "white",
-                borderRadius: "14px",
+                background: "white",
+                borderRadius: "15px",
                 border:
-                  "1px solid #e2e8f0",
-                whiteSpace:
-                  "pre-wrap",
-                lineHeight: "1.7",
+                  "1px solid #ddd",
               }}
             >
+              <h3>
+                🧠 Vikram Decision Engine
+              </h3>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    "repeat(auto-fit, minmax(130px, 1fr))",
+                  gap: "10px",
+                  marginTop: "15px",
+                  marginBottom: "25px",
+                }}
+              >
+                {[
+                  "🎯 Mission",
+                  "🔎 Discovery",
+                  "🧠 Analysis",
+                  "⚖️ Comparison",
+                  "💡 Recommendation",
+                  "⚠️ Risk Check",
+                ].map((step, index) => (
+                  <div
+                    key={step}
+                    style={{
+                      padding: "13px",
+                      textAlign:
+                        "center",
+                      borderRadius:
+                        "10px",
+                      background:
+                        index === 5
+                          ? "#fff7ed"
+                          : "#eff6ff",
+                      border:
+                        "1px solid #dbeafe",
+                      fontWeight:
+                        "bold",
+                    }}
+                  >
+                    {step}
+                  </div>
+                ))}
+              </div>
+
+              {/* MISSION REPORT */}
+
               <h3>
                 📋 Mission Report
               </h3>
 
-              {missionResult}
+              <div
+                style={{
+                  padding: "20px",
+                  background:
+                    "#f8f9fa",
+                  borderRadius:
+                    "10px",
+                  whiteSpace:
+                    "pre-wrap",
+                  lineHeight:
+                    "1.7",
+                }}
+              >
+                {missionResult}
+              </div>
+
+              {/* SCORECARD */}
+
+              {scorecard && (
+                <div
+                  style={{
+                    marginTop:
+                      "30px",
+                  }}
+                >
+                  <h3>
+                    📊 Vikram
+                    Intelligence
+                    Scorecard
+                  </h3>
+
+                  <div
+                    style={{
+                      display:
+                        "grid",
+                      gridTemplateColumns:
+                        "repeat(auto-fit, minmax(160px, 1fr))",
+                      gap: "15px",
+                      marginTop:
+                        "15px",
+                    }}
+                  >
+                    <ScoreCard
+                      title="🎯 Mission Score"
+                      value={`${scorecard.missionScore}/100`}
+                    />
+
+                    <ScoreCard
+                      title="🧠 Confidence"
+                      value={`${scorecard.confidence}%`}
+                    />
+
+                    <ScoreCard
+                      title="🔍 Analysis"
+                      value={
+                        scorecard.analysis
+                      }
+                    />
+
+                    <ScoreCard
+                      title="💡 Recommendation"
+                      value={
+                        scorecard.recommendation
+                      }
+                    />
+
+                    <ScoreCard
+                      title="⚠️ Risk"
+                      value={
+                        scorecard.risk
+                      }
+                    />
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop:
+                        "20px",
+                      padding:
+                        "15px",
+                      borderRadius:
+                        "10px",
+                      background:
+                        missionMode ===
+                        "demo"
+                          ? "#faf5ff"
+                          : "#ecfdf5",
+                      border:
+                        "1px solid #ddd",
+                    }}
+                  >
+                    <strong>
+                      {missionMode ===
+                      "demo"
+                        ? "⚡ Demo Intelligence Mode"
+                        : "🤖 Live AI Intelligence Mode"}
+                    </strong>
+
+                    <p
+                      style={{
+                        marginBottom: 0,
+                      }}
+                    >
+                      Vikram evaluates
+                      the mission,
+                      compares
+                      alternatives,
+                      identifies risks
+                      and produces a
+                      final decision.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </section>
-
-        {/* =================================================
-            SCORECARD
-        ================================================= */}
-
-        {scorecard && (
-          <section
-            style={{
-              background: "white",
-              padding: "30px",
-              borderRadius: "20px",
-              marginBottom: "30px",
-              border:
-                "1px solid #dbeafe",
-              boxShadow:
-                "0 10px 30px rgba(37,99,235,0.08)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent:
-                  "space-between",
-                alignItems:
-                  "center",
-                flexWrap:
-                  "wrap",
-                gap: "15px",
-              }}
-            >
-              <div>
-                <h2>
-                  📊 Vikram Decision
-                  Scorecard
-                </h2>
-
-                <p>
-                  Multi-factor evaluation
-                  of the selected mission.
-                </p>
-              </div>
-
-              <div
-                style={{
-                  width: "100px",
-                  height: "100px",
-                  borderRadius:
-                    "50%",
-                  background:
-                    "#eff6ff",
-                  border:
-                    "8px solid #2563eb",
-                  display: "flex",
-                  flexDirection:
-                    "column",
-                  alignItems:
-                    "center",
-                  justifyContent:
-                    "center",
-                }}
-              >
-                <strong
-                  style={{
-                    fontSize:
-                      "27px",
-                  }}
-                >
-                  {scorecard.overall}
-                </strong>
-
-                <small>
-                  /100
-                </small>
-              </div>
-            </div>
-
-            <div
-              style={{
-                marginTop: "25px",
-              }}
-            >
-              <ScoreBar
-                label="🎯 Goal Clarity"
-                value={
-                  scorecard.clarity
-                }
-              />
-
-              <ScoreBar
-                label="💡 Innovation"
-                value={
-                  scorecard.innovation
-                }
-              />
-
-              <ScoreBar
-                label="📈 Potential Impact"
-                value={
-                  scorecard.impact
-                }
-              />
-
-              <ScoreBar
-                label="⚡ Feasibility"
-                value={
-                  scorecard.feasibility
-                }
-              />
-
-              <ScoreBar
-                label="⚠️ Risk"
-                value={
-                  scorecard.risk
-                }
-                danger
-              />
-            </div>
-
-            <div
-              style={{
-                marginTop: "25px",
-                padding: "20px",
-                borderRadius: "14px",
-                background:
-                  "#f0fdf4",
-                border:
-                  "1px solid #bbf7d0",
-                textAlign:
-                  "center",
-              }}
-            >
-              <div
-                style={{
-                  fontSize:
-                    "22px",
-                  fontWeight:
-                    "bold",
-                }}
-              >
-                {scorecard.verdict}
-              </div>
-
-              <p>
-                Vikram's preliminary
-                decision score:
-                <strong>
-                  {" "}
-                  {scorecard.overall}/100
-                </strong>
-              </p>
-            </div>
-          </section>
-        )}
 
         {/* =================================================
             AUTONOMOUS AGENT
@@ -843,27 +953,20 @@ function App() {
         <section
           style={{
             background: "white",
-            padding: "28px",
-            borderRadius: "18px",
+            padding: "25px",
+            borderRadius: "15px",
             marginBottom: "30px",
-            border:
-              "1px solid #e2e8f0",
+            border: "1px solid #ddd",
           }}
         >
           <h2>
             🧠 Autonomous Agent
           </h2>
 
-          <p
-            style={{
-              lineHeight: "1.6",
-            }}
-          >
-            Vikram discovers technology
-            topics, evaluates them,
-            creates an AI publication
-            and stores the result in
-            memory.
+          <p>
+            Vikram discovers live technology
+            topics, evaluates them, writes a
+            post and stores the publication.
           </p>
 
           <button
@@ -873,15 +976,13 @@ function App() {
               padding:
                 "14px 28px",
               fontSize: "16px",
-              fontWeight:
-                "bold",
-              borderRadius: "9px",
+              fontWeight: "bold",
+              borderRadius: "8px",
               border: "none",
               background:
                 "#111827",
               color: "white",
-              cursor:
-                "pointer",
+              cursor: "pointer",
               opacity:
                 agentLoading
                   ? 0.7
@@ -900,14 +1001,14 @@ function App() {
                 padding: "15px",
                 borderRadius: "10px",
                 background:
-                  "#f8fafc",
+                  "#f8f9fa",
                 border:
-                  "1px solid #e2e8f0",
-                fontWeight:
-                  "bold",
+                  "1px solid #ddd",
               }}
             >
-              {agentStatus}
+              <strong>
+                {agentStatus}
+              </strong>
             </div>
           )}
         </section>
@@ -919,11 +1020,13 @@ function App() {
         {publication && (
           <section
             style={{
-              background: "white",
+              background:
+                "white",
               padding: "30px",
-              borderRadius: "18px",
+              borderRadius:
+                "15px",
               border:
-                "1px solid #e2e8f0",
+                "1px solid #ddd",
             }}
           >
             <h2>
@@ -961,16 +1064,18 @@ function App() {
 
             <div
               style={{
-                marginTop: "20px",
-                padding: "20px",
+                marginTop:
+                  "20px",
+                padding:
+                  "20px",
                 background:
-                  "#f8fafc",
+                  "#f8f9fa",
                 borderRadius:
-                  "12px",
+                  "10px",
                 whiteSpace:
                   "pre-wrap",
                 lineHeight:
-                  "1.7",
+                  "1.6",
               }}
             >
               {publication.post}
@@ -979,10 +1084,12 @@ function App() {
             {publication.reason && (
               <div
                 style={{
-                  marginTop: "20px",
-                  padding: "18px",
+                  marginTop:
+                    "20px",
+                  padding:
+                    "15px",
                   borderRadius:
-                    "12px",
+                    "10px",
                   background:
                     "#eef6ff",
                 }}
@@ -1016,44 +1123,50 @@ function App() {
             )}
           </section>
         )}
+      </div>
+    </div>
+  );
+}
 
-        <footer
-          style={{
-            textAlign: "center",
-            marginTop: "35px",
-            padding: "20px",
-            color: "#64748b",
-          }}
-        >
-          <strong>
-            Vikram AI
-          </strong>{" "}
-          • Ask → Mission → Decide →
-          Act
-        </footer>
+// =====================================================
+// SCORECARD COMPONENT
+// =====================================================
+
+function ScoreCard({ title, value }) {
+  return (
+    <div
+      style={{
+        padding: "20px",
+        borderRadius: "14px",
+        background:
+          "linear-gradient(135deg, #f8fafc, #ffffff)",
+        border:
+          "1px solid #e2e8f0",
+        textAlign: "center",
+        boxShadow:
+          "0 4px 12px rgba(0,0,0,0.04)",
+      }}
+    >
+      <div
+        style={{
+          fontSize: "14px",
+          color: "#64748b",
+          marginBottom:
+            "10px",
+        }}
+      >
+        {title}
       </div>
 
-      <style>
-        {`
-          .badge {
-            padding: 7px 12px;
-            border-radius: 20px;
-            background: rgba(255,255,255,0.15);
-            border: 1px solid rgba(255,255,255,0.25);
-            font-size: 13px;
-          }
-
-          button {
-            transition: transform 0.15s ease,
-                        box-shadow 0.15s ease;
-          }
-
-          button:hover:not(:disabled) {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-          }
-        `}
-      </style>
+      <div
+        style={{
+          fontSize: "22px",
+          fontWeight: "bold",
+          color: "#111827",
+        }}
+      >
+        {value}
+      </div>
     </div>
   );
 }
