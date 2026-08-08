@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 from app.services.gemini_service import ask_gemini
 from app.services.agent_service import run_agent
+from app.services.mission_service import run_mission
 
 
 # =========================================================
@@ -30,11 +31,15 @@ app.add_middleware(
 
 
 # =========================================================
-# REQUEST MODEL
+# REQUEST MODELS
 # =========================================================
 
 class Prompt(BaseModel):
     prompt: str
+
+
+class Mission(BaseModel):
+    mission: str
 
 
 # =========================================================
@@ -66,3 +71,12 @@ def chat(data: Prompt):
 @app.post("/agent/run")
 def run_autonomous_agent():
     return run_agent()
+
+
+# =========================================================
+# MISSION MODE 🧠
+# =========================================================
+
+@app.post("/mission")
+def mission(data: Mission):
+    return run_mission(data.mission)

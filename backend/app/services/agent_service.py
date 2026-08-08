@@ -10,12 +10,12 @@ MEMORY_FILE = "agent_memory.json"
 
 
 # =========================================================
-# 1. LIVE TOPIC DISCOVERY
+# LIVE TOPIC DISCOVERY
 # =========================================================
 
 def get_live_topics():
     """
-    Fetch live AI and technology topics from Hacker News.
+    Fetch live technology topics from Hacker News.
     """
 
     url = "https://hacker-news.firebaseio.com/v0/topstories.json"
@@ -25,15 +25,12 @@ def get_live_topics():
             story_ids = json.loads(
                 response.read().decode()
             )
-
-    except Exception as e:
-        print("❌ Topic discovery error:", e)
+    except Exception:
         return []
 
     topics = []
 
-    # Check top 30 live stories
-    for story_id in story_ids[:30]:
+    for story_id in story_ids[:10]:
 
         try:
             story_url = (
@@ -61,63 +58,14 @@ def get_live_topics():
         except Exception:
             continue
 
-    # AI / Technology keywords
-    ai_keywords = [
-        "ai",
-        "artificial intelligence",
-        "machine learning",
-        "deep learning",
-        "llm",
-        "language model",
-        "openai",
-        "gemini",
-        "claude",
-        "anthropic",
-        "agent",
-        "robot",
-        "robotics",
-        "neural",
-        "developer",
-        "github",
-        "software",
-        "programming",
-        "computer",
-        "chip",
-        "gpu",
-        "semiconductor",
-        "cybersecurity",
-        "cloud",
-        "database",
-        "python",
-        "javascript",
-        "startup",
-        "technology",
-        "tech"
-    ]
-
-    filtered_topics = []
-
-    for topic in topics:
-
-        title = topic["title"].lower()
-
-        if any(
-            keyword in title
-            for keyword in ai_keywords
-        ):
-            filtered_topics.append(topic)
-
-    return filtered_topics
+    return topics
 
 
 # =========================================================
-# 2. MEMORY
+# MEMORY
 # =========================================================
 
 def load_memory():
-    """
-    Load previously published posts.
-    """
 
     if not os.path.exists(MEMORY_FILE):
         return []
@@ -132,45 +80,31 @@ def load_memory():
 
             return json.load(f)
 
-    except Exception as e:
-
-        print("⚠️ Memory load error:", e)
+    except Exception:
         return []
 
 
 def save_memory(memory):
-    """
-    Save publications permanently.
-    """
 
-    try:
+    with open(
+        MEMORY_FILE,
+        "w",
+        encoding="utf-8"
+    ) as f:
 
-        with open(
-            MEMORY_FILE,
-            "w",
-            encoding="utf-8"
-        ) as f:
-
-            json.dump(
-                memory,
-                f,
-                indent=2,
-                ensure_ascii=False
-            )
-
-    except Exception as e:
-
-        print("❌ Memory save error:", e)
+        json.dump(
+            memory,
+            f,
+            indent=2,
+            ensure_ascii=False
+        )
 
 
 # =========================================================
-# 3. AUTONOMOUS EDITORIAL JUDGE
+# DECISION SCORECARD 🧠
 # =========================================================
 
-def judge_topic(topic, memory):
-    """
-    Ask Gemini whether the topic should be published.
-    """
+def score_topic(topic, memory):
 
     previous_titles = [
         item.get("topic", "")
@@ -178,380 +112,252 @@ def judge_topic(topic, memory):
     ]
 
     prompt = f"""
-You are Vikram AI's autonomous technology editor.
+You are Vikram AI's autonomous editorial decision engine.
 
-Your job is to decide whether the following live topic
-is worth publishing.
+Evaluate this live technology topic:
 
-TOPIC:
+Topic:
 {topic["title"]}
 
-PREVIOUSLY PUBLISHED:
+Previously published topics:
 {previous_titles}
 
-EDITORIAL RULES:
+Score the topic from 0 to 100 on:
 
-- Must relate to AI or technology.
-- Must provide meaningful information.
-- Prefer timely developments.
-- Prefer useful topics for developers and AI builders.
-- Avoid duplicates.
-- Avoid trivial or low-value stories.
-- Avoid clickbait.
-- Do not reject a topic merely because the title is short.
+1. Relevance
+How relevant is this topic to AI and modern technology?
 
-Return ONLY:
+2. Timeliness
+How important is this topic right now?
 
-PUBLISH
+3. Impact
+How significant could this development be?
 
-or
+4. Novelty
+How different is this topic from recently published topics?
 
-REJECT
+Then calculate:
+
+overall = average of the four scores
+
+Decision rules:
+
+PUBLISH if overall >= 70
+
+REJECT if overall < 70
+
+Return ONLY valid JSON.
+
+Required format:
+
+{{
+    "relevance": 0,
+    "timeliness": 0,
+    "impact": 0,
+    "novelty": 0,
+    "overall": 0,
+    "decision": "PUBLISH",
+    "reason": "short explanation"
+}}
 """
+
+    result = ask_gemini(prompt)
+
+    # =====================================================
+    # PARSE AI SCORE
+    # =====================================================
 
     try:
 
-        result = ask_gemini(prompt)
+        cleaned = result.strip()
 
-        if not result:
-            return False
+        # Remove markdown JSON fences if Gemini adds them
+        if cleaned.startswith("```"):
+            cleaned = cleaned.replace("```json", "")
+            cleaned = cleaned.replace("```", "")
+            cleaned = cleaned.strip()
 
-        result = result.strip().upper()
+        score = json.loads(cleaned)
 
-        print("🤖 AI decision:", result)
+        relevance = int(score.get("relevance", 0))
+        timeliness = int(score.get("timeliness", 0))
+        impact = int(score.get("impact", 0))
+        novelty = int(score.get("novelty", 0))
 
-        return result.startswith("PUBLISH")
+        overall = round(
+            (
+                relevance
+                + timeliness
+                + impact
+                + novelty
+            ) / 4
+        )
 
-    except Exception as e:
+        decision = (
+            "PUBLISH"
+            if overall >= 70
+            else "REJECT"
+        )
 
-        print("❌ Editorial judge error:", e)
-        return False
+        return {
+            "relevance": relevance,
+            "timeliness": timeliness,
+            "impact": impact,
+            "novelty": novelty,
+            "overall": overall,
+            "decision": decision,
+            "reason": score.get(
+                "reason",
+                "Topic evaluated by Vikram AI."
+            )
+        }
+
+    except Exception:
+
+        return {
+            "relevance": 0,
+            "timeliness": 0,
+            "impact": 0,
+            "novelty": 0,
+            "overall": 0,
+            "decision": "REJECT",
+            "reason": "AI score could not be parsed."
+        }
 
 
 # =========================================================
-# 4. AI POST GENERATOR
+# WRITE PUBLICATION
 # =========================================================
 
 def write_post(topic):
-    """
-    Generate an original Vikram AI technology post.
-    """
 
     prompt = f"""
-You are Vikram AI, an autonomous AI and technology
-editor.
+You are an original AI and technology persona called
+"Vikram AI".
 
-Create an original, concise technology article.
+Your editorial identity:
 
-LIVE TOPIC:
+- Curious about emerging AI and technology.
+- Practical and analytical.
+- Concise and informative.
+- Explains why a development matters.
+- Avoids hype and clickbait.
+
+Write a technology post about:
+
 {topic["title"]}
 
-SOURCE:
+Source:
 {topic["url"]}
 
-FORMAT:
+Include:
 
-TITLE:
-<interesting informative title>
+1. A strong title
+2. What happened
+3. Why it matters
+4. Why it is relevant now
+5. Vikram's editorial takeaway
 
-WHAT HAPPENED:
-<short explanation>
-
-WHY IT MATTERS:
-<practical significance>
-
-WHY NOW:
-<why this development is currently relevant>
-
-VIKRAM'S TAKE:
-<short analytical conclusion>
-
-RULES:
-
-- Do not invent facts.
-- Do not fabricate statistics.
-- Do not pretend to have information that is not available.
-- Keep the writing concise.
-- Avoid excessive emojis.
-- Avoid clickbait.
-- Make it useful for developers and technology enthusiasts.
+Do not invent facts that are not supported by
+the available topic information.
 """
 
-    try:
-
-        result = ask_gemini(prompt)
-
-        if not result:
-            return None
-
-        return result.strip()
-
-    except Exception as e:
-
-        print("❌ Post generation error:", e)
-        return None
+    return ask_gemini(prompt)
 
 
 # =========================================================
-# 5. CREATE PUBLICATION
-# =========================================================
-
-def create_publication(
-    topic,
-    post,
-    memory,
-    decision_mode
-):
-    """
-    Create and save a publication.
-    """
-
-    publication = {
-
-        "id": len(memory) + 1,
-
-        "topic": topic["title"],
-
-        "source": topic["url"],
-
-        "published_at": (
-            datetime.now(timezone.utc)
-            .isoformat()
-        ),
-
-        "post": post,
-
-        "reason": {
-
-            "why_selected": (
-                "The topic was selected by "
-                "Vikram AI's autonomous editorial system."
-            ),
-
-            "why_now": (
-                "The topic was discovered live from "
-                "a technology information source."
-            ),
-
-            "decision_mode": decision_mode
-        }
-    }
-
-    memory.append(publication)
-
-    save_memory(memory)
-
-    return publication
-
-
-# =========================================================
-# 6. AUTONOMOUS AGENT
+# AUTONOMOUS AGENT
 # =========================================================
 
 def run_agent():
-    """
-    Complete autonomous workflow:
-
-    LIVE DISCOVERY
-          ↓
-    MEMORY CHECK
-          ↓
-    AI JUDGMENT
-          ↓
-    AI WRITING
-          ↓
-    MEMORY
-          ↓
-    PUBLICATION
-    """
-
-    print("\n")
-    print("=" * 60)
-    print("🤖 VIKRAM AI AUTONOMOUS AGENT")
-    print("=" * 60)
-
-    # -----------------------------------------------------
-    # STEP 1 — Discover live topics
-    # -----------------------------------------------------
 
     topics = get_live_topics()
-
-    print(
-        f"🔎 Live AI/technology topics found: "
-        f"{len(topics)}"
-    )
 
     if not topics:
 
         return {
             "status": "no_topics",
-            "message": (
-                "No relevant AI/technology topics "
-                "were found."
-            )
+            "message": "No live topics found."
         }
-
-    # -----------------------------------------------------
-    # STEP 2 — Load memory
-    # -----------------------------------------------------
 
     memory = load_memory()
 
-    print(
-        f"🧠 Previous publications: "
-        f"{len(memory)}"
-    )
-
-    # -----------------------------------------------------
-    # STEP 3 — Remove duplicates
-    # -----------------------------------------------------
-
-    unseen_topics = []
+    # =====================================================
+    # EVALUATE TOPICS
+    # =====================================================
 
     for topic in topics:
 
         already_published = any(
-
-            item.get("topic", "")
-            .strip()
-            .lower()
-
-            ==
-            
-            topic["title"]
-            .strip()
-            .lower()
-
+            item.get("topic") == topic["title"]
             for item in memory
         )
 
         if already_published:
-
-            print(
-                f"⏭️ Duplicate skipped: "
-                f"{topic['title']}"
-            )
-
             continue
 
-        unseen_topics.append(topic)
-
-    print(
-        f"🆕 New topics available: "
-        f"{len(unseen_topics)}"
-    )
-
-    if not unseen_topics:
-
-        return {
-            "status": "no_new_topics",
-            "message": (
-                "All discovered topics have "
-                "already been published."
-            )
-        }
-
-    # -----------------------------------------------------
-    # STEP 4 — AI EDITORIAL JUDGMENT
-    # -----------------------------------------------------
-
-    for topic in unseen_topics:
-
-        print("\n" + "-" * 60)
-
-        print(
-            f"📰 Evaluating:\n"
-            f"{topic['title']}"
-        )
-
-        should_publish = judge_topic(
+        # AI DECISION SCORECARD
+        scorecard = score_topic(
             topic,
             memory
         )
 
-        if not should_publish:
+        # =================================================
+        # REJECT LOW-VALUE TOPICS
+        # =================================================
 
-            print("❌ AI Editor: REJECT")
-
+        if scorecard["decision"] != "PUBLISH":
             continue
 
-        print("✅ AI Editor: PUBLISH")
-
-        # -------------------------------------------------
-        # STEP 5 — Generate article
-        # -------------------------------------------------
+        # =================================================
+        # GENERATE PUBLICATION
+        # =================================================
 
         post = write_post(topic)
 
-        if not post:
+        publication = {
 
-            print(
-                "⚠️ AI failed to generate the post."
-            )
+            "id": len(memory) + 1,
 
-            continue
+            "topic": topic["title"],
 
-        # -------------------------------------------------
-        # STEP 6 — Save publication
-        # -------------------------------------------------
+            "source": topic["url"],
 
-        publication = create_publication(
-            topic=topic,
-            post=post,
-            memory=memory,
-            decision_mode="AI_EDITOR"
-        )
+            "published_at": datetime.now(
+                timezone.utc
+            ).isoformat(),
 
-        print("💾 Publication saved.")
-        print("🚀 Publication created.")
+            "post": post,
+
+            # NEW SCORECARD
+            "scorecard": scorecard,
+
+            "reason": {
+
+                "why_selected":
+                    scorecard["reason"],
+
+                "why_now":
+                    "The topic passed Vikram AI's "
+                    "autonomous editorial evaluation.",
+
+                "decision_mode":
+                    "AI_EDITOR"
+            }
+        }
+
+        memory.append(publication)
+
+        save_memory(memory)
 
         return {
             "status": "published",
             "publication": publication
         }
 
-    # =====================================================
-    # SMART FALLBACK
-    # =====================================================
-
-    print("\n")
-    print("⚡ AI rejected all topics.")
-    print("🔄 Starting smart fallback...")
-
-    # Pick the first unseen topic.
-    # This prevents the autonomous system
-    # from getting stuck with no output.
-
-    fallback_topic = unseen_topics[0]
-
-    print(
-        f"🎯 Fallback topic:\n"
-        f"{fallback_topic['title']}"
-    )
-
-    post = write_post(fallback_topic)
-
-    if not post:
-
-        return {
-            "status": "rejected",
-            "message": (
-                "Topics were discovered, but "
-                "AI post generation failed."
-            )
-        }
-
-    publication = create_publication(
-        topic=fallback_topic,
-        post=post,
-        memory=memory,
-        decision_mode="SMART_FALLBACK"
-    )
-
-    print("💾 Fallback publication saved.")
-    print("🚀 Publication created successfully.")
-
     return {
-        "status": "published",
-        "publication": publication
+        "status": "rejected",
+        "message":
+            "Topics were discovered, but none "
+            "met the editorial standards."
     }
